@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "default_ai": "openai",
+  "api_keys": {
+    "tongyi": "sk-676cf4a547c848bb9c5d2a6ae7f79cb7"
+  },
+  "models": {},
+  "last_paths": {
+    "source": "/Users/barry/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files/wxid_3u9ysx0mn6fa21_3680/msg/file",
+    "target": "/Users/barry/Desktop/new"
+  }
+}

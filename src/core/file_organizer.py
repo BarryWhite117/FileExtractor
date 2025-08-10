@@ -21,35 +21,55 @@ class FileOrganizer:
                       ai_analyzer=None, custom_rules: Dict = None, keep_originals: bool = False) -> Dict:
         """整理文件"""
         try:
+            print(f"🔧 FileOrganizer.organize_files 开始...")
+            print(f"📍 源目录: {source_dir}")
+            print(f"🎯 目标目录: {target_dir}")
+            print(f"🔧 整理方式: {methods}")
+            print(f"🤖 AI 分析器: {ai_analyzer}")
+            print(f"📋 保留原文件: {keep_originals}")
+            
             # 确保目标目录存在
             Path(target_dir).mkdir(parents=True, exist_ok=True)
+            print(f"✅ 目标目录已创建/确认: {target_dir}")
             
             # 扫描源目录
             from ..utils.file_utils import FileAnalyzer
             analyzer = FileAnalyzer()
             files = analyzer.scan_directory(source_dir)
+            print(f"📁 扫描到 {len(files)} 个文件")
             
             if not files:
+                print("❌ 没有找到文件")
                 return {'success': False, 'message': '没有找到文件'}
             
             # 应用整理方法
             organized_files = {}
             for method in methods:
+                print(f"🔧 正在应用整理方法: {method}")
                 if method in self.organization_methods:
                     result = self.organization_methods[method](files, target_dir, ai_analyzer, custom_rules, keep_originals)
                     organized_files[method] = result
+                    print(f"✅ 方法 {method} 完成，结果: {result}")
+                else:
+                    print(f"❌ 未知的整理方法: {method}")
             
             # 生成整理报告
             report = self._generate_report(organized_files, files)
+            print(f"📊 生成报告: {report}")
             
-            return {
+            final_result = {
                 'success': True,
                 'organized_files': organized_files,
                 'report': report,
                 'total_files': len(files)
             }
+            print(f"🎉 整理完成，最终结果: {final_result}")
+            return final_result
             
         except Exception as e:
+            print(f"❌ 整理过程中发生错误: {e}")
+            import traceback
+            traceback.print_exc()
             return {'success': False, 'message': str(e)}
     
     def _organize_by_type(self, files: List[Dict], target_dir: str, 

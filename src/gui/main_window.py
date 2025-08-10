@@ -450,19 +450,35 @@ class FileExtractorGUI(QMainWindow):
             return
         
         # 获取选中的整理方式
-        selected_methods = [method for method, checkbox in self.method_checkboxes.items() 
-                          if checkbox.isChecked()]
+        selected_method = None
+        for method, radio in self.method_radios.items():
+            if radio.isChecked():
+                selected_method = method
+                break
         
-        if not selected_methods:
-            QMessageBox.warning(self, "警告", "请至少选择一种整理方式")
+        if not selected_method:
+            QMessageBox.warning(self, "警告", "请选择一种整理方式")
             return
+        
+        selected_methods = [selected_method]
         
         # 创建 AI 分析器
         if self.ai_enabled_checkbox.isChecked():
-            self.setup_ai_analyzer()
+            self.result_text.append("🔧 正在初始化 AI 分析器...")
+            if not self.setup_ai_analyzer():
+                self.result_text.append("❌ AI 分析器初始化失败，无法继续")
+                self.organize_btn.setEnabled(True)
+                return
+            self.result_text.append(f"🎯 将使用 AI 分析器: {self.ai_model_combo.currentText()}")
+        else:
+            self.result_text.append("📁 将使用传统整理方式（无 AI 分析）")
         
         # 开始整理
-        self.result_text.append("开始整理文件...")
+        self.result_text.append(f"🚀 开始整理文件...")
+        self.result_text.append(f"📍 源目录: {source_dir}")
+        self.result_text.append(f"🎯 目标目录: {target_dir}")
+        self.result_text.append(f"🔧 整理方式: {', '.join(selected_methods)}")
+        self.result_text.append(f"📋 保留原文件: {'是' if self.keep_originals_checkbox.isChecked() else '否'}")
         self.organize_btn.setEnabled(False)
         
         # 创建整理线程
@@ -478,14 +494,31 @@ class FileExtractorGUI(QMainWindow):
     
     def setup_ai_analyzer(self):
         """设置 AI 分析器"""
-        if self.ai_model_combo.currentText() == "OpenAI GPT":
-            api_key = self.openai_key_edit.text().strip()
-            if api_key:
-                self.ai_analyzer = AIAnalyzerFactory.create_analyzer('openai', api_key)
-        elif self.ai_model_combo.currentText() == "通义千问":
-            api_key = self.tongyi_key_edit.text().strip()
-            if api_key:
-                self.ai_analyzer = AIAnalyzerFactory.create_analyzer('tongyi', api_key)
+        try:
+            if self.ai_model_combo.currentText() == "OpenAI GPT":
+                api_key = self.openai_key_edit.text().strip()
+                if api_key:
+                    self.ai_analyzer = AIAnalyzerFactory.create_analyzer('openai', api_key)
+                    self.result_text.append(f"✅ OpenAI GPT 分析器已初始化")
+                else:
+                    self.result_text.append("❌ OpenAI API Key 未设置")
+                    return False
+            elif self.ai_model_combo.currentText() == "通义千问":
+                api_key = self.tongyi_key_edit.text().strip()
+                if api_key:
+                    self.ai_analyzer = AIAnalyzerFactory.create_analyzer('tongyi', api_key)
+                    self.result_text.append(f"✅ 通义千问分析器已初始化")
+                else:
+                    self.result_text.append("❌ 通义千问 API Key 未设置")
+                    return False
+            else:
+                self.result_text.append("❌ 未选择 AI 模型")
+                return False
+            
+            return True
+        except Exception as e:
+            self.result_text.append(f"❌ AI 分析器初始化失败: {str(e)}")
+            return False
     
     def on_organize_finished(self, result):
         """整理完成"""
@@ -718,12 +751,24 @@ class OrganizeThread(QThread):
     def run(self):
         """运行整理"""
         try:
+            print(f"🔧 OrganizeThread 开始运行...")
+            print(f"📍 源目录: {self.source_dir}")
+            print(f"🎯 目标目录: {self.target_dir}")
+            print(f"🔧 整理方式: {self.methods}")
+            print(f"🤖 AI 分析器: {self.ai_analyzer}")
+            print(f"📋 保留原文件: {self.keep_originals}")
+            
             result = self.organizer.organize_files(
                 self.source_dir, self.target_dir,
                 self.methods, self.ai_analyzer, keep_originals=self.keep_originals
             )
+            
+            print(f"✅ 整理完成，结果: {result}")
             self.finished.emit(result)
         except Exception as e:
+            print(f"❌ 整理过程中发生错误: {e}")
+            import traceback
+            traceback.print_exc()
             self.finished.emit({'success': False, 'message': str(e)})
 
 
