@@ -241,6 +241,15 @@ class FileExtractorGUI(QMainWindow):
         
         org_layout.addWidget(ai_group)
         
+        # 选项：是否保留原文件
+        option_group = QGroupBox("整理选项")
+        option_layout = QHBoxLayout(option_group)
+        self.keep_originals_checkbox = QCheckBox("整理后保留原目录内文件（复制而非移动）")
+        self.keep_originals_checkbox.setToolTip("勾选后会复制文件到目标目录，源目录不改动；不勾选则为移动文件")
+        option_layout.addWidget(self.keep_originals_checkbox)
+        option_layout.addStretch()
+        org_layout.addWidget(option_group)
+
         # 操作按钮
         button_layout = QHBoxLayout()
         
@@ -451,7 +460,7 @@ class FileExtractorGUI(QMainWindow):
         # 创建整理线程
         self.organize_thread = OrganizeThread(
             self.file_organizer, source_dir, target_dir, 
-            selected_methods, self.ai_analyzer
+            selected_methods, self.ai_analyzer, self.keep_originals_checkbox.isChecked()
         )
         self.organize_thread.finished.connect(self.on_organize_finished)
         self.organize_thread.start()
@@ -590,20 +599,21 @@ class OrganizeThread(QThread):
     """文件整理线程"""
     finished = pyqtSignal(dict)
     
-    def __init__(self, organizer, source_dir, target_dir, methods, ai_analyzer):
+    def __init__(self, organizer, source_dir, target_dir, methods, ai_analyzer, keep_originals: bool = False):
         super().__init__()
         self.organizer = organizer
         self.source_dir = source_dir
         self.target_dir = target_dir
         self.methods = methods
         self.ai_analyzer = ai_analyzer
+        self.keep_originals = keep_originals
     
     def run(self):
         """运行整理"""
         try:
             result = self.organizer.organize_files(
-                self.source_dir, self.target_dir, 
-                self.methods, self.ai_analyzer
+                self.source_dir, self.target_dir,
+                self.methods, self.ai_analyzer, keep_originals=self.keep_originals
             )
             self.finished.emit(result)
         except Exception as e:

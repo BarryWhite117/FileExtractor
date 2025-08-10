@@ -18,7 +18,7 @@ class FileOrganizer:
         }
     
     def organize_files(self, source_dir: str, target_dir: str, methods: List[str], 
-                      ai_analyzer=None, custom_rules: Dict = None) -> Dict:
+                      ai_analyzer=None, custom_rules: Dict = None, keep_originals: bool = False) -> Dict:
         """整理文件"""
         try:
             # 确保目标目录存在
@@ -36,7 +36,7 @@ class FileOrganizer:
             organized_files = {}
             for method in methods:
                 if method in self.organization_methods:
-                    result = self.organization_methods[method](files, target_dir, ai_analyzer, custom_rules)
+                    result = self.organization_methods[method](files, target_dir, ai_analyzer, custom_rules, keep_originals)
                     organized_files[method] = result
             
             # 生成整理报告
@@ -53,7 +53,7 @@ class FileOrganizer:
             return {'success': False, 'message': str(e)}
     
     def _organize_by_type(self, files: List[Dict], target_dir: str, 
-                          ai_analyzer=None, custom_rules: Dict = None) -> Dict:
+                          ai_analyzer=None, custom_rules: Dict = None, keep_originals: bool = False) -> Dict:
         """按文件类型整理"""
         type_dirs = {}
         moved_files = []
@@ -66,9 +66,9 @@ class FileOrganizer:
                 type_dirs[type_dir] = []
                 Path(type_dir).mkdir(parents=True, exist_ok=True)
             
-            # 移动文件
+            # 移动/复制文件
             new_path = os.path.join(type_dir, file_info['name'])
-            if self._move_file(file_info['path'], new_path):
+            if self._move_or_copy_file(file_info['path'], new_path, keep_originals):
                 moved_files.append({
                     'original': file_info['path'],
                     'new': new_path,
@@ -83,7 +83,7 @@ class FileOrganizer:
         }
     
     def _organize_by_time(self, files: List[Dict], target_dir: str, 
-                          ai_analyzer=None, custom_rules: Dict = None) -> Dict:
+                          ai_analyzer=None, custom_rules: Dict = None, keep_originals: bool = False) -> Dict:
         """按时间整理"""
         time_dirs = {}
         moved_files = []
@@ -97,9 +97,9 @@ class FileOrganizer:
                 time_dirs[time_dir] = []
                 Path(time_dir).mkdir(parents=True, exist_ok=True)
             
-            # 移动文件
+            # 移动/复制文件
             new_path = os.path.join(time_dir, file_info['name'])
-            if self._move_file(file_info['path'], new_path):
+            if self._move_or_copy_file(file_info['path'], new_path, keep_originals):
                 moved_files.append({
                     'original': file_info['path'],
                     'new': new_path,
@@ -114,7 +114,7 @@ class FileOrganizer:
         }
     
     def _organize_by_content(self, files: List[Dict], target_dir: str, 
-                            ai_analyzer=None, custom_rules: Dict = None) -> Dict:
+                            ai_analyzer=None, custom_rules: Dict = None, keep_originals: bool = False) -> Dict:
         """按内容类型整理（需要AI分析器）"""
         if not ai_analyzer:
             return {'method': 'by_content', 'error': '需要AI分析器'}
@@ -134,9 +134,9 @@ class FileOrganizer:
                     content_dirs[content_dir] = []
                     Path(content_dir).mkdir(parents=True, exist_ok=True)
                 
-                # 移动文件
+                # 移动/复制文件
                 new_path = os.path.join(content_dir, file_info['name'])
-                if self._move_file(file_info['path'], new_path):
+                if self._move_or_copy_file(file_info['path'], new_path, keep_originals):
                     moved_files.append({
                         'original': file_info['path'],
                         'new': new_path,
@@ -152,7 +152,7 @@ class FileOrganizer:
         }
     
     def _organize_by_size(self, files: List[Dict], target_dir: str, 
-                          ai_analyzer=None, custom_rules: Dict = None) -> Dict:
+                          ai_analyzer=None, custom_rules: Dict = None, keep_originals: bool = False) -> Dict:
         """按文件大小整理"""
         size_dirs = {}
         moved_files = []
@@ -172,9 +172,9 @@ class FileOrganizer:
                 size_dirs[size_dir] = []
                 Path(size_dir).mkdir(parents=True, exist_ok=True)
             
-            # 移动文件
+            # 移动/复制文件
             new_path = os.path.join(size_dir, file_info['name'])
-            if self._move_file(file_info['path'], new_path):
+            if self._move_or_copy_file(file_info['path'], new_path, keep_originals):
                 moved_files.append({
                     'original': file_info['path'],
                     'new': new_path,
@@ -189,7 +189,7 @@ class FileOrganizer:
         }
     
     def _organize_by_chat(self, files: List[Dict], target_dir: str, 
-                          ai_analyzer=None, custom_rules: Dict = None) -> Dict:
+                          ai_analyzer=None, custom_rules: Dict = None, keep_originals: bool = False) -> Dict:
         """按聊天对象整理（基于文件路径分析）"""
         chat_dirs = {}
         moved_files = []
@@ -205,9 +205,9 @@ class FileOrganizer:
                 chat_dirs[chat_dir] = []
                 Path(chat_dir).mkdir(parents=True, exist_ok=True)
             
-            # 移动文件
+            # 移动/复制文件
             new_path = os.path.join(chat_dir, file_info['name'])
-            if self._move_file(file_info['path'], new_path):
+            if self._move_or_copy_file(file_info['path'], new_path, keep_originals):
                 moved_files.append({
                     'original': file_info['path'],
                     'new': new_path,
@@ -230,8 +230,8 @@ class FileOrganizer:
                 return part
         return 'unknown'
     
-    def _move_file(self, source: str, destination: str) -> bool:
-        """移动文件"""
+    def _move_or_copy_file(self, source: str, destination: str, keep_originals: bool) -> bool:
+        """移动或复制文件（根据 keep_originals），同时处理重名"""
         try:
             # 如果目标文件已存在，添加序号
             if os.path.exists(destination):
@@ -241,10 +241,13 @@ class FileOrganizer:
                     destination = f"{base}_{counter}{ext}"
                     counter += 1
             
-            shutil.move(source, destination)
+            if keep_originals:
+                shutil.copy2(source, destination)
+            else:
+                shutil.move(source, destination)
             return True
         except Exception as e:
-            print(f"移动文件失败 {source} -> {destination}: {e}")
+            print(f"移动/复制文件失败 {source} -> {destination}: {e}")
             return False
     
     def _generate_report(self, organized_files: Dict, all_files: List[Dict]) -> Dict:
