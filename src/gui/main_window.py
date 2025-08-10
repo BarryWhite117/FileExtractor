@@ -5,7 +5,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QPushButton, QLabel, QLineEdit, 
                              QTextEdit, QFileDialog, QCheckBox, QGroupBox,
                              QProgressBar, QTabWidget, QScrollArea, QFrame,
-                             QMessageBox, QComboBox, QSpinBox, QGridLayout)
+                             QMessageBox, QComboBox, QSpinBox, QGridLayout,
+                             QRadioButton, QButtonGroup)
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QUrl
 from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPixmap, QDesktopServices
 
@@ -216,13 +217,18 @@ class FileExtractorGUI(QMainWindow):
         method_group = QGroupBox("选择整理方式")
         method_layout = QGridLayout(method_group)
         
-        self.method_checkboxes = {}
+        self.method_group = QButtonGroup(self)
+        self.method_group.setExclusive(True)
+        self.method_radios = {}
         methods = self.file_organizer.get_available_methods()
         
         for i, method in enumerate(methods):
-            checkbox = QCheckBox(self.file_organizer.get_method_description(method))
-            self.method_checkboxes[method] = checkbox
-            method_layout.addWidget(checkbox, i // 2, i % 2)
+            radio = QRadioButton(self.file_organizer.get_method_description(method))
+            if i == 0:
+                radio.setChecked(True)
+            self.method_group.addButton(radio)
+            self.method_radios[method] = radio
+            method_layout.addWidget(radio, i // 2, i % 2)
         
         org_layout.addWidget(method_group)
         
@@ -257,13 +263,13 @@ class FileExtractorGUI(QMainWindow):
         self.scan_btn.setStyleSheet("background-color: #17a2b8;")
         button_layout.addWidget(self.scan_btn)
         
-        self.organize_btn = QPushButton("开始整理")
-        self.organize_btn.setEnabled(False)
-        button_layout.addWidget(self.organize_btn)
-        
         self.preview_btn = QPushButton("预览结果")
         self.preview_btn.setStyleSheet("background-color: #ffc107; color: #212529;")
         button_layout.addWidget(self.preview_btn)
+
+        self.organize_btn = QPushButton("开始整理")
+        self.organize_btn.setEnabled(False)
+        button_layout.addWidget(self.organize_btn)
         
         org_layout.addLayout(button_layout)
         
@@ -513,22 +519,78 @@ class FileExtractorGUI(QMainWindow):
             QMessageBox.information(self, "预览", "未找到文件")
             return
 
-        # 统计按扩展名的数量与体积
-        stats = {}
-        total_size = 0
-        for f in files:
-            ext = (f.get('extension') or '').lower()
-            key = (ext[1:] if ext.startswith('.') else ext) or 'no_ext'
-            stats.setdefault(key, {'count': 0, 'size': 0})
-            stats[key]['count'] += 1
-            stats[key]['size'] += f.get('size', 0)
-            total_size += f.get('size', 0)
+        # 根据所选整理方式预览
+        selected_method = None
+        for key, radio in self.method_radios.items():
+            if radio.isChecked():
+                selected_method = key
+                break
 
-        # 构建预览文本
-        lines = [f"共 {len(files)} 个文件，合计 {self.format_size(total_size)}\n", "按后缀统计："]
-        # 按数量降序显示前 20 项
-        for ext, info in sorted(stats.items(), key=lambda x: x[1]['count'], reverse=True)[:20]:
-            lines.append(f"- {ext}: {info['count']} 个，{self.format_size(info['size'])}")
+        total_size = sum(f.get('size', 0) for f in files)
+        lines = [f"共 {len(files)} 个文件，合计 {self.format_size(total_size)}\n"]
+
+        if selected_method == 'by_type':
+            stats = {}
+            for f in files:
+                ext = (f.get('extension') or '').lower()
+                key = (ext[1:] if ext.startswith('.') else ext) or 'no_ext'
+                stats.setdefault(key, {'count': 0, 'size': 0})
+                stats[key]['count'] += 1
+                stats[key]['size'] += f.get('size', 0)
+            lines.append("按后缀统计（Top 20）:")
+            for ext, info in sorted(stats.items(), key=lambda x: x[1]['count'], reverse=True)[:20]:
+                lines.append(f"- {ext}: {info['count']} 个，{self.format_size(info['size'])}")
+
+        elif selected_method == 'by_time':
+            stats = {}
+            for f in files:
+                t = f.get('modified_time')
+                key = f"{t.year}_{t.month:02d}" if t else 'unknown'
+                stats.setdefault(key, {'count': 0, 'size': 0})
+                stats[key]['count'] += 1
+                stats[key]['size'] += f.get('size', 0)
+            lines.append("按年月统计（Top 20）:")
+            for ym, info in sorted(stats.items(), key=lambda x: x[0], reverse=True)[:20]:
+                lines.append(f"- {ym}: {info['count']} 个，{self.format_size(info['size'])}")
+
+        elif selected_method == 'by_size':
+            buckets = {'large(>100MB)': 0, 'medium(10-100MB)': 0, 'small(<=10MB)': 0}
+            bucket_sizes = {'large(>100MB)': 0, 'medium(10-100MB)': 0, 'small(<=10MB)': 0}
+            for f in files:
+                s = f.get('size', 0)
+                if s > 100 * 1024 * 1024:
+                    key = 'large(>100MB)'
+                elif s > 10 * 1024 * 1024:
+                    key = 'medium(10-100MB)'
+                else:
+                    key = 'small(<=10MB)'
+                buckets[key] += 1
+                bucket_sizes[key] += s
+            lines.append("按大小统计：")
+            for k in ['large(>100MB)', 'medium(10-100MB)', 'small(<=10MB)']:
+                lines.append(f"- {k}: {buckets[k]} 个，{self.format_size(bucket_sizes[k])}")
+
+        elif selected_method == 'by_chat':
+            from pathlib import Path
+            stats = {}
+            for f in files:
+                parts = Path(f.get('path', '')).parts
+                chat = 'unknown'
+                for p in parts:
+                    if p.startswith('msg') or p.startswith('chat'):
+                        chat = p
+                        break
+                stats.setdefault(chat, {'count': 0, 'size': 0})
+                stats[chat]['count'] += 1
+                stats[chat]['size'] += f.get('size', 0)
+            lines.append("按聊天对象统计（Top 20）:")
+            for chat, info in sorted(stats.items(), key=lambda x: x[1]['count'], reverse=True)[:20]:
+                lines.append(f"- {chat}: {info['count']} 个，{self.format_size(info['size'])}")
+
+        elif selected_method == 'by_content':
+            lines.append("按内容类型预览需要启用 AI 分析后执行整理；此处暂不进行推断统计。")
+        else:
+            lines.append("未选择整理方式。")
 
         self.result_text.clear()
         self.result_text.append("\n".join(lines))
