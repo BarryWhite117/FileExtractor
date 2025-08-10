@@ -6,8 +6,8 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QTextEdit, QFileDialog, QCheckBox, QGroupBox,
                              QProgressBar, QTabWidget, QScrollArea, QFrame,
                              QMessageBox, QComboBox, QSpinBox, QGridLayout)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer
-from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPixmap
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QUrl
+from PyQt6.QtGui import QFont, QPalette, QColor, QIcon, QPixmap, QDesktopServices
 
 from ..core.file_organizer import FileOrganizer
 from ..ai.ai_analyzer import AIAnalyzerFactory, AIConfig
@@ -26,8 +26,9 @@ class FileExtractorGUI(QMainWindow):
         self.ai_config = AIConfig()
         self.ai_analyzer = None
         
-        # 设置样式
-        self.setup_styles()
+        # 主题切换
+        self.dark_mode = False
+        self.apply_theme()
         
         # 创建界面
         self.setup_ui()
@@ -38,74 +39,86 @@ class FileExtractorGUI(QMainWindow):
         # 加载配置
         self.load_config()
     
-    def setup_styles(self):
-        """设置界面样式"""
-        # 设置字体
+    def apply_theme(self):
+        """应用主题（明亮/暗色）"""
         font = QFont("PingFang SC", 10)
         self.setFont(font)
-        
-        # 设置样式表
-        self.setStyleSheet("""
-            QMainWindow {
-                background-color: #f8f9fa;
-            }
-            QGroupBox {
-                font-weight: bold;
-                border: 2px solid #e9ecef;
-                border-radius: 8px;
-                margin-top: 10px;
-                padding-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 5px 0 5px;
-                color: #495057;
-            }
-            QPushButton {
-                background-color: #28a745;
-                color: white;
-                border: none;
-                padding: 8px 16px;
-                border-radius: 6px;
-                font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #218838;
-            }
-            QPushButton:pressed {
-                background-color: #1e7e34;
-            }
-            QPushButton:disabled {
-                background-color: #6c757d;
-            }
-            QLineEdit, QTextEdit {
-                border: 2px solid #e9ecef;
-                border-radius: 6px;
-                padding: 8px;
-                background-color: white;
-            }
-            QLineEdit:focus, QTextEdit:focus {
-                border-color: #28a745;
-            }
-            QCheckBox {
-                spacing: 8px;
-            }
-            QCheckBox::indicator {
-                width: 18px;
-                height: 18px;
-            }
-            QProgressBar {
-                border: 2px solid #e9ecef;
-                border-radius: 6px;
-                text-align: center;
-                background-color: #e9ecef;
-            }
-            QProgressBar::chunk {
-                background-color: #28a745;
-                border-radius: 4px;
-            }
-        """)
+
+        if not self.dark_mode:
+            # 明亮主题
+            self.setStyleSheet("""
+                QMainWindow { background-color: #f8f9fa; }
+                QWidget { color: #212529; }
+                QGroupBox { font-weight: bold; border: 2px solid #e9ecef; border-radius: 8px; margin-top: 10px; padding-top: 10px; }
+                QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; color: #343a40; }
+                QPushButton { background-color: #28a745; color: #ffffff; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; }
+                QPushButton:hover { background-color: #218838; }
+                QPushButton:pressed { background-color: #1e7e34; }
+                QPushButton:disabled { background-color: #adb5bd; color: #fff; }
+                QLineEdit, QTextEdit { border: 2px solid #ced4da; border-radius: 8px; padding: 10px; background-color: #ffffff; color: #212529; }
+                QLineEdit::placeholder { color: #6c757d; }
+                QLineEdit:focus, QTextEdit:focus { border-color: #28a745; }
+                QCheckBox { spacing: 8px; }
+                QCheckBox:disabled { color: #6c757d; }
+                QCheckBox::indicator { width: 18px; height: 18px; }
+                QProgressBar { border: 2px solid #e9ecef; border-radius: 8px; text-align: center; background-color: #e9ecef; color: #212529; }
+                QProgressBar::chunk { background-color: #28a745; border-radius: 6px; }
+                /* Tabs - light theme */
+                QTabWidget::pane { border: 1px solid #dee2e6; border-radius: 8px; top: -1px; }
+                QTabWidget::tab-bar { left: 0px; }
+                QTabBar::tab { background: #f1f3f5; color: #212529; border: 1px solid #dee2e6; border-bottom: 2px solid #dee2e6; border-top-left-radius: 6px; border-top-right-radius: 6px; padding: 8px 14px; margin: 0 4px; }
+                QTabBar::tab:hover { color: #0f5132; }
+                QTabBar::tab:selected { background: #ffffff; color: #198754; border: 1px solid #dee2e6; border-bottom: 2px solid #ffffff; }
+                /* ComboBox - light theme */
+                QComboBox { color: #212529; background: #ffffff; border: 2px solid #ced4da; border-radius: 8px; padding: 6px 8px; }
+                QComboBox:disabled { color: #6c757d; background: #f1f3f5; }
+                QComboBox::drop-down { width: 26px; border-left: 1px solid #dee2e6; }
+                QComboBox QAbstractItemView { background: #ffffff; color: #212529; selection-background-color: #e7f5ef; selection-color: #0f5132; border: 1px solid #dee2e6; outline: none; }
+                /* MessageBox - light theme */
+                QMessageBox { background: #ffffff; color: #212529; }
+                QMessageBox QLabel { color: #212529; }
+                QMessageBox QPushButton { background-color: #28a745; color: #ffffff; border: none; padding: 6px 14px; border-radius: 6px; }
+                QMessageBox QPushButton:hover { background-color: #218838; }
+                QMessageBox QPushButton:pressed { background-color: #1e7e34; }
+                QWidget:disabled { color: #6c757d; }
+            """)
+        else:
+            # 暗色主题
+            self.setStyleSheet("""
+                QMainWindow { background-color: #1f2428; }
+                QWidget { color: #e6edf3; }
+                QGroupBox { font-weight: bold; border: 1.5px solid #2d333b; border-radius: 8px; margin-top: 10px; padding-top: 10px; color: #e6edf3; }
+                QPushButton { background-color: #2ea043; color: #e6edf3; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; }
+                QPushButton:hover { background-color: #2b8a3e; }
+                QPushButton:pressed { background-color: #237436; }
+                QPushButton:disabled { background-color: #3d444d; color: #9da7b1; }
+                QLineEdit, QTextEdit { border: 1.5px solid #2d333b; border-radius: 8px; padding: 10px; background-color: #0d1117; color: #e6edf3; }
+                QLineEdit::placeholder { color: #9da7b1; }
+                QLineEdit:focus, QTextEdit:focus { border-color: #2ea043; }
+                QProgressBar { border: 1.5px solid #2d333b; border-radius: 8px; text-align: center; background-color: #0d1117; color: #e6edf3; }
+                QProgressBar::chunk { background-color: #2ea043; border-radius: 6px; }
+                /* Tabs - dark theme */
+                QTabWidget::pane { border: 1px solid #2d333b; border-radius: 8px; top: -1px; }
+                QTabBar::tab { background: #2d333b; color: #e6edf3; border: 1px solid #2d333b; border-bottom: 2px solid #2d333b; border-top-left-radius: 6px; border-top-right-radius: 6px; padding: 8px 14px; margin: 0 4px; }
+                QTabBar::tab:hover { color: #a8f0c6; }
+                QTabBar::tab:selected { background: #0d1117; color: #7ee2a8; border: 1px solid #2d333b; border-bottom: 2px solid #0d1117; }
+                QWidget:disabled { color: #9da7b1; }
+            """)
+
+        # 如果步骤标签已创建，同步更新其样式
+        if hasattr(self, "step_labels"):
+            self.update_step_badges()
+
+    def update_step_badges(self):
+        """根据主题刷新步骤提示样式"""
+        if not hasattr(self, "step_labels"):
+            return
+        if not self.dark_mode:
+            style = "padding:6px 10px; border-radius:12px; background:#dee2e6; color:#212529;"
+        else:
+            style = "padding:6px 10px; border-radius:12px; background:#2d333b; color:#e6edf3;"
+        for label in self.step_labels:
+            label.setStyleSheet(style)
     
     def setup_ui(self):
         """创建界面"""
@@ -127,6 +140,24 @@ class FileExtractorGUI(QMainWindow):
             margin-bottom: 20px;
         """)
         main_layout.addWidget(title_label)
+
+        # 顶部工具条：步骤指示 + 主题切换
+        top_bar = QHBoxLayout()
+        step1 = QLabel("① 选择源目录")
+        step2 = QLabel("② 选择目标目录")
+        step3 = QLabel("③ 选择整理方式")
+        step4 = QLabel("④ 开始")
+        self.step_labels = [step1, step2, step3, step4]
+        self.update_step_badges()
+        top_bar.addWidget(step1)
+        top_bar.addWidget(step2)
+        top_bar.addWidget(step3)
+        top_bar.addWidget(step4)
+        top_bar.addStretch()
+        self.theme_btn = QPushButton("🌙 夜间模式")
+        self.theme_btn.setToolTip("切换明亮/暗色主题")
+        top_bar.addWidget(self.theme_btn)
+        main_layout.addLayout(top_bar)
         
         # 创建标签页
         tab_widget = QTabWidget()
@@ -156,6 +187,11 @@ class FileExtractorGUI(QMainWindow):
         
         self.browse_source_btn = QPushButton("浏览...")
         source_layout.addWidget(self.browse_source_btn)
+
+        self.wechat_default_btn = QPushButton("微信默认")
+        self.wechat_default_btn.setToolTip("自动定位微信数据目录")
+        self.wechat_default_btn.setStyleSheet("background-color:#0d6efd;")
+        source_layout.addWidget(self.wechat_default_btn)
         
         org_layout.addWidget(source_group)
         
@@ -169,6 +205,10 @@ class FileExtractorGUI(QMainWindow):
         
         self.browse_target_btn = QPushButton("浏览...")
         target_layout.addWidget(self.browse_target_btn)
+
+        self.open_target_btn = QPushButton("打开")
+        self.open_target_btn.setStyleSheet("background-color:#6c757d;")
+        target_layout.addWidget(self.open_target_btn)
         
         org_layout.addWidget(target_group)
         
@@ -326,6 +366,9 @@ class FileExtractorGUI(QMainWindow):
         self.scan_btn.clicked.connect(self.scan_files)
         self.organize_btn.clicked.connect(self.organize_files)
         self.preview_btn.clicked.connect(self.preview_organization)
+        self.wechat_default_btn.clicked.connect(self.fill_wechat_default_path)
+        self.open_target_btn.clicked.connect(self.open_target_directory)
+        self.theme_btn.clicked.connect(self.toggle_theme)
         
         # 路径变化时启用扫描按钮
         self.source_path_edit.textChanged.connect(self.check_paths)
@@ -449,6 +492,35 @@ class FileExtractorGUI(QMainWindow):
     def preview_organization(self):
         """预览整理结果"""
         QMessageBox.information(self, "预览", "预览功能开发中...")
+
+    def toggle_theme(self):
+        """切换主题"""
+        self.dark_mode = not self.dark_mode
+        # 更新按钮文本
+        self.theme_btn.setText("☀️ 明亮模式" if self.dark_mode else "🌙 夜间模式")
+        self.apply_theme()
+
+    def fill_wechat_default_path(self):
+        """自动填充微信默认数据目录（macOS）"""
+        try:
+            base = Path.home() / "Library/Containers/com.tencent.xinWeChat/Data/Library/Application Support/com.tencent.xinWeChat"
+            if base.exists():
+                # 选择第一个子目录作为候选
+                candidates = [p for p in base.iterdir() if p.is_dir()]
+                target = candidates[0] if candidates else base
+                self.source_path_edit.setText(str(target))
+                return
+            QMessageBox.information(self, "提示", "未找到微信数据目录，请手动选择。")
+        except Exception:
+            QMessageBox.information(self, "提示", "未找到微信数据目录，请手动选择。")
+
+    def open_target_directory(self):
+        """在Finder中打开目标目录"""
+        path = self.target_path_edit.text().strip()
+        if not path or not os.path.exists(path):
+            QMessageBox.information(self, "提示", "请先选择有效的目标目录")
+            return
+        QDesktopServices.openUrl(QUrl.fromLocalFile(path))
     
     def format_size(self, size_bytes):
         """格式化文件大小"""
