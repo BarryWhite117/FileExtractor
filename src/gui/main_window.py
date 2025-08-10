@@ -252,6 +252,7 @@ class FileExtractorGUI(QMainWindow):
         option_layout = QHBoxLayout(option_group)
         self.keep_originals_checkbox = QCheckBox("整理后保留原目录内文件（复制而非移动）")
         self.keep_originals_checkbox.setToolTip("勾选后会复制文件到目标目录，源目录不改动；不勾选则为移动文件")
+        self.keep_originals_checkbox.setChecked(True)  # 默认勾选
         option_layout.addWidget(self.keep_originals_checkbox)
         option_layout.addStretch()
         org_layout.addWidget(option_group)
