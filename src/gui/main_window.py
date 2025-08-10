@@ -388,12 +388,14 @@ class FileExtractorGUI(QMainWindow):
         directory = QFileDialog.getExistingDirectory(self, "选择微信文件目录")
         if directory:
             self.source_path_edit.setText(directory)
+            self.ai_config.set_last_path('source', directory)
     
     def browse_target_directory(self):
         """浏览目标目录"""
         directory = QFileDialog.getExistingDirectory(self, "选择整理后的保存目录")
         if directory:
             self.target_path_edit.setText(directory)
+            self.ai_config.set_last_path('target', directory)
     
     def check_paths(self):
         """检查路径是否有效"""
@@ -558,6 +560,14 @@ class FileExtractorGUI(QMainWindow):
         tongyi_key = self.ai_config.get_api_key('tongyi')
         if tongyi_key:
             self.tongyi_key_edit.setText(tongyi_key)
+
+        # 加载上次的目录
+        last_source = self.ai_config.get_last_path('source')
+        if last_source:
+            self.source_path_edit.setText(last_source)
+        last_target = self.ai_config.get_last_path('target')
+        if last_target:
+            self.target_path_edit.setText(last_target)
     
     def save_ai_config(self):
         """保存 AI 配置"""
@@ -572,6 +582,12 @@ class FileExtractorGUI(QMainWindow):
         
         # 保存启用状态
         self.ai_config.set_enabled(self.ai_enabled_checkbox.isChecked())
+
+        # 保存最近使用路径
+        if self.source_path_edit.text().strip():
+            self.ai_config.set_last_path('source', self.source_path_edit.text().strip())
+        if self.target_path_edit.text().strip():
+            self.ai_config.set_last_path('target', self.target_path_edit.text().strip())
         
         QMessageBox.information(self, "成功", "AI 配置已保存")
 

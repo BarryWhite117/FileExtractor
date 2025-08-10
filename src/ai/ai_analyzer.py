@@ -145,7 +145,8 @@ class AIConfig:
             'enabled': False,
             'default_ai': 'openai',
             'api_keys': {},
-            'models': {}
+            'models': {},
+            'last_paths': { 'source': '', 'target': '' }
         }
     
     def save_config(self):
@@ -174,4 +175,16 @@ class AIConfig:
     def set_enabled(self, enabled: bool):
         """设置是否启用AI功能"""
         self.config['enabled'] = enabled
+        self.save_config()
+
+    # ========= 通用应用配置：最近使用的目录 =========
+    def get_last_path(self, key: str) -> Optional[str]:
+        """读取上次保存的路径，key 可为 'source' 或 'target'"""
+        return self.config.get('last_paths', {}).get(key)
+
+    def set_last_path(self, key: str, path: str):
+        """保存路径（独立保存源或目标路径）"""
+        if 'last_paths' not in self.config:
+            self.config['last_paths'] = {}
+        self.config['last_paths'][key] = path
         self.save_config()
