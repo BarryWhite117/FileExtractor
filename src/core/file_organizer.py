@@ -54,13 +54,14 @@ class FileOrganizer:
     
     def _organize_by_type(self, files: List[Dict], target_dir: str, 
                           ai_analyzer=None, custom_rules: Dict = None, keep_originals: bool = False) -> Dict:
-        """按文件类型整理"""
-        type_dirs = {}
-        moved_files = []
+        """按文件后缀类型整理（按扩展名）"""
+        type_dirs: Dict[str, List[str]] = {}
+        moved_files: List[Dict] = []
         
         for file_info in files:
-            file_type = file_info['file_type']
-            type_dir = os.path.join(target_dir, 'by_type', file_type)
+            ext = (file_info.get('extension') or '').lower()
+            ext_key = ext[1:] if ext.startswith('.') and len(ext) > 1 else (ext if ext else 'no_ext')
+            type_dir = os.path.join(target_dir, 'by_type', ext_key)
             
             if type_dir not in type_dirs:
                 type_dirs[type_dir] = []
@@ -72,7 +73,7 @@ class FileOrganizer:
                 moved_files.append({
                     'original': file_info['path'],
                     'new': new_path,
-                    'type': file_type
+                    'type': ext_key
                 })
                 type_dirs[type_dir].append(file_info['name'])
         
@@ -279,7 +280,7 @@ class FileOrganizer:
     def get_method_description(self, method: str) -> str:
         """获取方法的描述"""
         descriptions = {
-            'by_type': '按文件类型整理（图片、视频、文档等）',
+            'by_type': '按后缀类型整理（按扩展名，如 jpg、pdf）',
             'by_time': '按修改时间整理（年_月）',
             'by_content': '按AI分析的内容类型整理',
             'by_size': '按文件大小整理（大、中、小）',
