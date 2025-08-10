@@ -502,7 +502,36 @@ class FileExtractorGUI(QMainWindow):
     
     def preview_organization(self):
         """预览整理结果"""
-        QMessageBox.information(self, "预览", "预览功能开发中...")
+        source_dir = self.source_path_edit.text().strip()
+        if not source_dir or not os.path.exists(source_dir):
+            QMessageBox.warning(self, "提示", "请先选择有效的源目录")
+            return
+
+        analyzer = FileAnalyzer()
+        files = analyzer.scan_directory(source_dir)
+        if not files:
+            QMessageBox.information(self, "预览", "未找到文件")
+            return
+
+        # 统计按扩展名的数量与体积
+        stats = {}
+        total_size = 0
+        for f in files:
+            ext = (f.get('extension') or '').lower()
+            key = (ext[1:] if ext.startswith('.') else ext) or 'no_ext'
+            stats.setdefault(key, {'count': 0, 'size': 0})
+            stats[key]['count'] += 1
+            stats[key]['size'] += f.get('size', 0)
+            total_size += f.get('size', 0)
+
+        # 构建预览文本
+        lines = [f"共 {len(files)} 个文件，合计 {self.format_size(total_size)}\n", "按后缀统计："]
+        # 按数量降序显示前 20 项
+        for ext, info in sorted(stats.items(), key=lambda x: x[1]['count'], reverse=True)[:20]:
+            lines.append(f"- {ext}: {info['count']} 个，{self.format_size(info['size'])}")
+
+        self.result_text.clear()
+        self.result_text.append("\n".join(lines))
 
     def toggle_theme(self):
         """切换主题"""

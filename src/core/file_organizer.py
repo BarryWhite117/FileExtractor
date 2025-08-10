@@ -61,6 +61,8 @@ class FileOrganizer:
         for file_info in files:
             ext = (file_info.get('extension') or '').lower()
             ext_key = ext[1:] if ext.startswith('.') and len(ext) > 1 else (ext if ext else 'no_ext')
+            # 归一化常见同类后缀（如 jpeg->jpg, htm->html 等）
+            ext_key = self._normalize_extension(ext_key)
             type_dir = os.path.join(target_dir, 'by_type', ext_key)
             
             if type_dir not in type_dirs:
@@ -82,6 +84,19 @@ class FileOrganizer:
             'directories': type_dirs,
             'moved_files': moved_files
         }
+
+    def _normalize_extension(self, ext_key: str) -> str:
+        """规范化后缀名，合并同类后缀，返回不带点的后缀"""
+        if not ext_key:
+            return 'no_ext'
+        mapping = {
+            # images
+            'jpeg': 'jpg', 'jpe': 'jpg',
+            'tif': 'tiff',
+            # web/text
+            'htm': 'html',
+        }
+        return mapping.get(ext_key, ext_key)
     
     def _organize_by_time(self, files: List[Dict], target_dir: str, 
                           ai_analyzer=None, custom_rules: Dict = None, keep_originals: bool = False) -> Dict:
